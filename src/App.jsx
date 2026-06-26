@@ -868,6 +868,8 @@ export default function App() {
   const [view, setView] = useState('timeline');
   const [openId, setOpenId] = useState(null);
   const [composing, setComposing] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
+  const [comments, setComments] = useState([]);
   const [notice, setNotice] = useState('');
   THM = THEMES[theme] || THEMES.drawingPaper;
 
@@ -907,13 +909,58 @@ export default function App() {
         { event: '*', schema: 'public', table: 'profiles' },
         () => loadProfiles()
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'comments' },
+        loadComments
+      )
       .subscribe();
     return () => supabase.removeChannel(ch);
   }, [authUser]);
 
   const loadAll = async () => {
-    await Promise.all([loadProfiles(), loadEntries()]);
+    await Promise.all([loadProfiles(), loadEntries(), loadComments()]);
   };
+
+  async function loadComments() {
+    const { data } = await supabase
+      .from('comments')
+      .select('*')
+      .order('created_at', { ascending: true });
+    if (data) setComments(data);
+  }
+
+  async function addComment({ entryId, text }) {
+    if (!currentProfile) return;
+    const { error } = await supabase.from('comments').insert([
+      {
+        id: uid(),
+        entry_id: entryId,
+        author_id: authUser.id,
+        author_name: currentProfile.name,
+        text: text.trim().slice(0, 100),
+        created_at: Date.now(),
+      },
+    ]);
+    if (error) {
+      setNotice('コメントエラー: ' + error.message);
+      return;
+    }
+    await loadComments();
+  }
+
+  async function updateComment(id, text) {
+    await supabase
+      .from('comments')
+      .update({ text: text.trim().slice(0, 100) })
+      .eq('id', id);
+    await loadComments();
+  }
+
+  async function deleteComment(id) {
+    await supabase.from('comments').delete().eq('id', id);
+    await loadComments();
+  }
 
   async function loadProfiles() {
     const { data } = await supabase.from('profiles').select('*');
@@ -972,6 +1019,26 @@ export default function App() {
     await supabase.from('entries').delete().eq('id', id);
     await loadEntries();
     setOpenId(null);
+  }
+
+  async function updateEntry({ id, weather, title, text, photoData }) {
+    const { error } = await supabase
+      .from('entries')
+      .update({
+        weather,
+        title: title.trim() || '無題',
+        text,
+        photo: photoData || null,
+      })
+      .eq('id', id);
+    if (error) {
+      setNotice('保存エラー: ' + error.message);
+      return;
+    }
+    await loadEntries();
+    setComposing(false);
+    setEditTarget(null);
+    setOpenId(id);
   }
 
   async function updateMemberPaper(id, patch) {
@@ -1412,7 +1479,10 @@ export default function App() {
             d="check"
           />
           <button
-            onClick={() => setComposing(true)}
+            onClick={() => {
+              setEditTarget(null);
+              setComposing(true);
+            }}
             className="fab"
             style={{
               justifySelf: 'center',
@@ -1453,6 +1523,18 @@ export default function App() {
           photo={photos[openEntry.id]}
           member={memberById(openEntry.authorId)}
           canEdit={openEntry.author_id === authUser?.id}
+          comments={comments.filter((c) => c.entry_id === openEntry.id)}
+          currentUserId={authUser?.id}
+          currentName={currentProfile?.name}
+          memberById={memberById}
+          onAddComment={(text) => addComment({ entryId: openEntry.id, text })}
+          onUpdateComment={updateComment}
+          onDeleteComment={deleteComment}
+          onEdit={() => {
+            setEditTarget({ ...openEntry, photo: photos[openEntry.id] });
+            setOpenId(null);
+            setComposing(true);
+          }}
           onClose={() => setOpenId(null)}
           onDelete={() => removeEntry(openEntry.id)}
         />
@@ -1460,6 +1542,7 @@ export default function App() {
       {composing && (
         <Compose
           author={currentProfile}
+          editEntry={editTarget}
           prevEntryFor={(authorId) => {
             const prev = entries.find((e) => e.authorId !== authorId);
             return prev
@@ -1470,8 +1553,12 @@ export default function App() {
                 }
               : null;
           }}
-          onCancel={() => setComposing(false)}
+          onCancel={() => {
+            setComposing(false);
+            setEditTarget(null);
+          }}
           onSubmit={addEntry}
+          onUpdate={updateEntry}
           processImage={fileToDataURL}
         />
       )}
@@ -2092,7 +2179,22 @@ function LeafRow({ entry: e, idx: i, total, m, right, photo, onOpen }) {
     </div>
   );
 }
-function DiaryModal({ entry, photo, member, canEdit, onClose, onDelete }) {
+function DiaryModal({
+  entry,
+  photo,
+  member,
+  canEdit,
+  comments = [],
+  currentUserId,
+  currentName,
+  memberById,
+  onAddComment,
+  onUpdateComment,
+  onDeleteComment,
+  onEdit,
+  onClose,
+  onDelete,
+}) {
   const [confirm, setConfirm] = useState(false);
   const pp = paperOf(member);
   return (
@@ -2119,6 +2221,16 @@ function DiaryModal({ entry, photo, member, canEdit, onClose, onDelete }) {
           style={{ top: -11, left: '50%', marginLeft: -40 }}
         />
         <DiaryPage entry={entry} photo={photo} member={member} stamp />
+        <CommentSection
+          comments={comments}
+          canComment={!canEdit}
+          currentUserId={currentUserId}
+          currentName={currentName}
+          memberById={memberById}
+          onAdd={onAddComment}
+          onUpdate={onUpdateComment}
+          onDelete={onDeleteComment}
+        />
         <div
           style={{
             display: 'flex',
@@ -2126,16 +2238,25 @@ function DiaryModal({ entry, photo, member, canEdit, onClose, onDelete }) {
             padding: '4px 22px 20px',
             justifyContent: 'space-between',
             alignItems: 'center',
+            flexWrap: 'wrap',
           }}
         >
           {canEdit ? (
             !confirm ? (
-              <button
-                onClick={() => setConfirm(true)}
-                style={{ ...ghostBtn, color: T.red, borderColor: '#E3B6AE' }}
-              >
-                削除
-              </button>
+              <span style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={onEdit}
+                  style={{ ...ghostBtn, color: T.blue, borderColor: '#B7CEDF' }}
+                >
+                  編集
+                </button>
+                <button
+                  onClick={() => setConfirm(true)}
+                  style={{ ...ghostBtn, color: T.red, borderColor: '#E3B6AE' }}
+                >
+                  削除
+                </button>
+              </span>
             ) : (
               <span style={{ display: 'flex', gap: 8 }}>
                 <button
@@ -2172,6 +2293,213 @@ function DiaryModal({ entry, photo, member, canEdit, onClose, onDelete }) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+function CommentSection({
+  comments,
+  canComment,
+  currentUserId,
+  currentName,
+  memberById,
+  onAdd,
+  onUpdate,
+  onDelete,
+}) {
+  const [draft, setDraft] = useState('');
+  const [editId, setEditId] = useState(null);
+  const [editText, setEditText] = useState('');
+  const myComment = comments.find((c) => c.author_id === currentUserId);
+  const colorOf = (id) => (memberById && memberById(id)?.color) || T.inkSoft;
+  return (
+    <div style={{ padding: '0 22px 8px' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 7,
+          margin: '2px 0 10px',
+        }}
+      >
+        <Doodle name="heart" size={18} color={T.coral} />
+        <span style={{ fontFamily: F_TITLE, fontSize: 14, color: T.ink }}>
+          ひとことコメント
+        </span>
+        <span style={{ fontSize: 11, color: T.inkSoft }}>
+          {comments.length ? `${comments.length}件` : ''}
+        </span>
+      </div>
+      {comments.length > 0 && (
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+            marginBottom: canComment ? 12 : 4,
+          }}
+        >
+          {comments.map((c) => {
+            const mine = c.author_id === currentUserId;
+            const col = colorOf(c.author_id);
+            return (
+              <div
+                key={c.id}
+                style={{
+                  background: '#ffffffcc',
+                  border: `1.5px solid ${PANEL_LINE}`,
+                  borderLeft: `4px solid ${col}`,
+                  borderRadius: 12,
+                  padding: '8px 11px',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 7,
+                    marginBottom: 3,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 11.5,
+                      fontFamily: F_TITLE,
+                      color: inkOf(col),
+                    }}
+                  >
+                    {c.author_name || '？'}
+                  </span>
+                  {mine && editId !== c.id && (
+                    <span
+                      style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}
+                    >
+                      <button
+                        onClick={() => {
+                          setEditId(c.id);
+                          setEditText(c.text || '');
+                        }}
+                        style={linkBtn}
+                      >
+                        なおす
+                      </button>
+                      <button
+                        onClick={() => onDelete(c.id)}
+                        style={{ ...linkBtn, color: T.red }}
+                      >
+                        消す
+                      </button>
+                    </span>
+                  )}
+                </div>
+                {editId === c.id ? (
+                  <div>
+                    <textarea
+                      value={editText}
+                      onChange={(e) =>
+                        setEditText(e.target.value.slice(0, 100))
+                      }
+                      rows={2}
+                      style={commentBox}
+                    />
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginTop: 5,
+                      }}
+                    >
+                      <span style={{ fontSize: 11, color: T.inkSoft }}>
+                        {editText.length}/100
+                      </span>
+                      <span style={{ display: 'flex', gap: 8 }}>
+                        <button
+                          onClick={() => setEditId(null)}
+                          style={ghostBtn}
+                        >
+                          やめる
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (editText.trim()) onUpdate(c.id, editText);
+                            setEditId(null);
+                          }}
+                          style={{
+                            ...ghostBtn,
+                            background: T.leaf,
+                            color: '#fff',
+                            border: 'none',
+                          }}
+                        >
+                          保存
+                        </button>
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      fontSize: 14,
+                      color: T.ink,
+                      lineHeight: 1.5,
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {c.text}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {canComment && !myComment && (
+        <div style={{ marginBottom: 6 }}>
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value.slice(0, 100))}
+            rows={2}
+            placeholder="相手の日記にひとこと（100文字まで）"
+            style={commentBox}
+          />
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginTop: 5,
+            }}
+          >
+            <span style={{ fontSize: 11, color: T.inkSoft }}>
+              {draft.length}/100
+            </span>
+            <button
+              disabled={!draft.trim()}
+              onClick={() => {
+                if (draft.trim()) {
+                  onAdd(draft);
+                  setDraft('');
+                }
+              }}
+              style={{
+                ...ghostBtn,
+                background: draft.trim() ? T.coral : PANEL_LINE,
+                color: '#fff',
+                border: 'none',
+                cursor: draft.trim() ? 'pointer' : 'not-allowed',
+              }}
+            >
+              おくる
+            </button>
+          </div>
+        </div>
+      )}
+      {canComment && myComment && (
+        <div style={{ fontSize: 11.5, color: T.inkSoft, marginBottom: 6 }}>
+          コメント済み。上の「なおす」から直せます。
+        </div>
+      )}
     </div>
   );
 }
@@ -2335,15 +2663,24 @@ function DiaryPage({ entry, photo, member, compact, stamp }) {
     </div>
   );
 }
-function Compose({ author, prevEntryFor, onCancel, onSubmit, processImage }) {
-  const [weather, setWeather] = useState('晴れ');
-  const [title, setTitle] = useState('');
-  const [text, setText] = useState('');
-  const [photo, setPhoto] = useState(null);
+function Compose({
+  author,
+  editEntry,
+  prevEntryFor,
+  onCancel,
+  onSubmit,
+  onUpdate,
+  processImage,
+}) {
+  const isEdit = !!editEntry;
+  const [weather, setWeather] = useState(editEntry?.weather || '晴れ');
+  const [title, setTitle] = useState(editEntry?.title || '');
+  const [text, setText] = useState(editEntry?.text || '');
+  const [photo, setPhoto] = useState(editEntry?.photo || null);
   const [busy, setBusy] = useState(false);
   const [showPrev, setShowPrev] = useState(true);
   const fileRef = useRef(null);
-  const prev = prevEntryFor(author.id);
+  const prev = isEdit ? null : prevEntryFor(author.id);
   const pp = paperOf(author);
   const len = text.length;
   const tooLong = len > 1000;
@@ -2405,7 +2742,7 @@ function Compose({ author, prevEntryFor, onCancel, onSubmit, processImage }) {
                 color: T.ink,
               }}
             >
-              今日のページ
+              {isEdit ? 'ページを編集' : '今日のページ'}
             </span>
             <button onClick={onCancel} style={ghostBtn}>
               閉じる
@@ -2623,13 +2960,21 @@ function Compose({ author, prevEntryFor, onCancel, onSubmit, processImage }) {
           <button
             disabled={!ok || busy}
             onClick={() =>
-              onSubmit({
-                authorId: author.id,
-                weather,
-                title,
-                text,
-                photoData: photo,
-              })
+              isEdit
+                ? onUpdate({
+                    id: editEntry.id,
+                    weather,
+                    title,
+                    text,
+                    photoData: photo,
+                  })
+                : onSubmit({
+                    authorId: author.id,
+                    weather,
+                    title,
+                    text,
+                    photoData: photo,
+                  })
             }
             style={{
               width: '100%',
@@ -2646,7 +2991,7 @@ function Compose({ author, prevEntryFor, onCancel, onSubmit, processImage }) {
               boxShadow: ok ? '0 5px 14px #0003' : 'none',
             }}
           >
-            送る
+            {isEdit ? '保存する' : '送る'}
           </button>
         </div>
       </div>
@@ -3589,6 +3934,29 @@ const miniBtn = {
   color: T.inkSoft,
   cursor: 'pointer',
   whiteSpace: 'nowrap',
+};
+const linkBtn = {
+  background: 'transparent',
+  border: 'none',
+  color: T.inkSoft,
+  fontSize: 11.5,
+  cursor: 'pointer',
+  padding: 0,
+  fontFamily: F_HAND,
+};
+const commentBox = {
+  width: '100%',
+  boxSizing: 'border-box',
+  resize: 'vertical',
+  border: `1.5px solid ${PANEL_LINE}`,
+  borderRadius: 10,
+  padding: '8px 11px',
+  fontSize: 14,
+  lineHeight: 1.6,
+  color: T.ink,
+  fontFamily: F_HAND,
+  background: '#fff',
+  outline: 'none',
 };
 const css = `
 @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Klee+One:wght@400;600&display=swap');
