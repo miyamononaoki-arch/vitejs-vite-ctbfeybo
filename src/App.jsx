@@ -1121,6 +1121,10 @@ export default function App() {
     (m) => !entries.some((e) => e.date === todayStr() && e.authorId === m.id)
   );
   const someoneWroteToday = entries.some((e) => e.date === todayStr());
+  const commentCounts = {};
+  comments.forEach((c) => {
+    commentCounts[c.entry_id] = (commentCounts[c.entry_id] || 0) + 1;
+  });
 
   if (authLoading)
     return (
@@ -1373,6 +1377,7 @@ export default function App() {
                 photos,
                 memberById,
                 sideOf,
+                commentCounts,
                 onOpen: setOpenId,
               }}
             />
@@ -1383,6 +1388,7 @@ export default function App() {
                 entries: visibleEntries,
                 photos,
                 memberById,
+                commentCounts,
                 onOpen: setOpenId,
               }}
             />
@@ -1973,7 +1979,68 @@ const DECOR = [
     color: T.pink,
   },
 ];
-function Timeline({ entries, photos, memberById, sideOf, onOpen }) {
+function CommentStamp({ n = 0, rot = -12, style }) {
+  return (
+    <span
+      aria-label="コメントが来ています"
+      style={{
+        position: 'absolute',
+        width: 54,
+        height: 54,
+        borderRadius: '50%',
+        background: '#FBEEE9',
+        border: `2px dashed ${T.coral}`,
+        boxShadow: '0 3px 8px #0003',
+        display: 'grid',
+        placeItems: 'center',
+        transform: `rotate(${rot}deg)`,
+        ...style,
+      }}
+    >
+      <span
+        style={{
+          display: 'grid',
+          placeItems: 'center',
+          lineHeight: 1.05,
+          textAlign: 'center',
+        }}
+      >
+        <Doodle name="heart" size={16} color={T.coral} />
+        <span
+          style={{
+            fontFamily: F_TITLE,
+            fontWeight: 600,
+            fontSize: 9.5,
+            color: T.coral,
+            marginTop: 1,
+          }}
+        >
+          コメント
+        </span>
+        {n > 1 && (
+          <span
+            style={{
+              fontFamily: F_TITLE,
+              fontWeight: 600,
+              fontSize: 8.5,
+              color: T.coral,
+            }}
+          >
+            {n}件
+          </span>
+        )}
+      </span>
+    </span>
+  );
+}
+function Timeline({
+  entries,
+  photos,
+  memberById,
+  sideOf,
+  commentCounts,
+  onOpen,
+}) {
   if (!entries.length) return <Empty />;
   return (
     <div style={{ position: 'relative' }}>
@@ -2011,6 +2078,7 @@ function Timeline({ entries, photos, memberById, sideOf, onOpen }) {
             m={memberById(e.authorId)}
             right={sideOf(e.authorId) === 'right'}
             photo={photos[e.id]}
+            commentCount={commentCounts[e.id] || 0}
             onOpen={onOpen}
           />
         ))}
@@ -2028,7 +2096,16 @@ function Timeline({ entries, photos, memberById, sideOf, onOpen }) {
     </div>
   );
 }
-function LeafRow({ entry: e, idx: i, total, m, right, photo, onOpen }) {
+function LeafRow({
+  entry: e,
+  idx: i,
+  total,
+  m,
+  right,
+  photo,
+  commentCount = 0,
+  onOpen,
+}) {
   const [ref, seen] = useInView();
   const pp = paperOf(m);
   const rot = (right ? 1 : -1) * (1.4 + (i % 3) * 0.5);
@@ -2077,6 +2154,9 @@ function LeafRow({ entry: e, idx: i, total, m, right, photo, onOpen }) {
         >
           <Doodle name={stamp} size={28} />
         </span>
+        {commentCount > 0 && (
+          <CommentStamp n={commentCount} style={{ bottom: -14, right: -10 }} />
+        )}
         <div
           style={{
             display: 'flex',
@@ -2998,7 +3078,7 @@ function Compose({
     </div>
   );
 }
-function ListView({ entries, photos, memberById, onOpen }) {
+function ListView({ entries, photos, memberById, commentCounts, onOpen }) {
   if (!entries.length) return <Empty />;
   const groups = {};
   [...entries]
@@ -3128,9 +3208,32 @@ function ListView({ entries, photos, memberById, onOpen }) {
                     >
                       {e.title}
                     </div>
-                    <div style={{ fontSize: 12, color: T.inkSoft }}>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: T.inkSoft,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        flexWrap: 'wrap',
+                      }}
+                    >
                       <span style={{ color: inkOf(m.color) }}>{m.name}</span> ・{' '}
                       {(e.text || '').length}文字
+                      {(commentCounts[e.id] || 0) > 0 && (
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 3,
+                            color: T.coral,
+                            fontFamily: F_TITLE,
+                          }}
+                        >
+                          <Doodle name="heart" size={12} color={T.coral} />
+                          コメント{commentCounts[e.id]}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <span style={{ color: T.inkSoft, fontSize: 18 }}>›</span>
