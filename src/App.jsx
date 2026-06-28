@@ -871,6 +871,8 @@ export default function App() {
   const [editTarget, setEditTarget] = useState(null);
   const [comments, setComments] = useState([]);
   const [notice, setNotice] = useState('');
+  const notifiedRef = useRef(new Set());
+  const initedRef = useRef(false);
   THM = THEMES[theme] || THEMES.drawingPaper;
 
   useEffect(() => {
@@ -989,6 +991,16 @@ export default function App() {
       if (e.photo) pm[e.id] = e.photo;
     });
     setPhotos(pm);
+    // 相手の新しい投稿を見つけたら通知（初回読み込み時は鳴らさない）
+    if (initedRef.current) {
+      data.forEach((e) => {
+        if (e.author_id !== authUser?.id && !notifiedRef.current.has(e.id)) {
+          notify(`${e.author_name || 'だれか'}が投稿しました`, e.title);
+        }
+      });
+    }
+    data.forEach((e) => notifiedRef.current.add(e.id));
+    initedRef.current = true;
   }
 
   async function addEntry({ authorId, weather, title, text, photoData }) {
@@ -1097,15 +1109,39 @@ export default function App() {
             }
       )
     );
-  async function requestNotify() {
+  async function enableNotify() {
     if (!('Notification' in window)) {
       setNotice('この環境では通知を使えません。');
       return;
     }
     const p = await Notification.requestPermission();
-    setNotice(
-      p === 'granted' ? '通知をオンにしました。' : '通知はオフのままです。'
-    );
+    if (p !== 'granted') {
+      setNotice('通知はオフのままです。');
+      return;
+    }
+    if ('serviceWorker' in navigator) {
+      try {
+        await navigator.serviceWorker.register('/sw.js');
+      } catch {}
+    }
+    setNotice('通知をオンにしました。相手が投稿するとお知らせします。');
+  }
+  function notify(title, body) {
+    if (!('Notification' in window) || Notification.permission !== 'granted')
+      return;
+    try {
+      if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+        navigator.serviceWorker.ready.then((reg) =>
+          reg.showNotification(title, {
+            body: body || '',
+            icon: '/icon-192.png',
+            badge: '/icon-192.png',
+          })
+        );
+      } else {
+        new Notification(title, { body: body || '', icon: '/icon-192.png' });
+      }
+    } catch {}
   }
 
   const memberById = (id) =>
@@ -1317,8 +1353,8 @@ export default function App() {
                   </>
                 )}
               </span>
-              <button onClick={requestNotify} style={miniBtn}>
-                22時通知
+              <button onClick={enableNotify} style={miniBtn}>
+                通知
               </button>
             </div>
           </div>
