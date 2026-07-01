@@ -245,6 +245,16 @@ const uid = () =>
   Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-3);
 const circled = (n) =>
   n >= 1 && n <= 20 ? String.fromCharCode(0x245f + n) : `${n}`;
+const VAPID_PUBLIC =
+  'BAsWyaK_f23BpOh2ZX-6QIZD0r0irHnVMrV4if40rc7cP7POPd2vLMsrY78wCjHiVAU8GAJOTVIAZGLoKp6-7y8';
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  const arr = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr;
+}
 function fileToDataURL(file, maxDim = 820, q = 0.74) {
   return new Promise((res, rej) => {
     const img = new Image();
@@ -1119,12 +1129,38 @@ export default function App() {
       setNotice('通知はオフのままです。');
       return;
     }
-    if ('serviceWorker' in navigator) {
-      try {
-        await navigator.serviceWorker.register('/sw.js');
-      } catch {}
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      setNotice('通知をオンにしました（この端末はプッシュ非対応の可能性）。');
+      return;
     }
-    setNotice('通知をオンにしました。相手が投稿するとお知らせします。');
+    try {
+      const reg = await navigator.serviceWorker.register('/sw.js');
+      await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC),
+      });
+      await saveSubscription(sub);
+      setNotice('通知をオンにしました。閉じていてもお知らせします。');
+    } catch (e) {
+      setNotice('通知の登録に失敗: ' + (e?.message || e));
+    }
+  }
+  async function saveSubscription(sub) {
+    const json = sub.toJSON();
+    if (!json.endpoint || !authUser) return;
+    await supabase.from('push_subscriptions').upsert(
+      {
+        id: uid(),
+        endpoint: json.endpoint,
+        user_id: authUser.id,
+        user_name: currentProfile?.name || '',
+        p256dh: json.keys?.p256dh || '',
+        auth: json.keys?.auth || '',
+        created_at: Date.now(),
+      },
+      { onConflict: 'endpoint' }
+    );
   }
   function notify(title, body) {
     if (!('Notification' in window) || Notification.permission !== 'granted')
