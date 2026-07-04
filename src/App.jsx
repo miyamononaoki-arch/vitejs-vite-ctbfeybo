@@ -883,6 +883,8 @@ export default function App() {
   const [notice, setNotice] = useState('');
   const notifiedRef = useRef(new Set());
   const initedRef = useRef(false);
+  const [notifyOn, setNotifyOn] = useState(null);
+  const [notifyMenu, setNotifyMenu] = useState(false);
   THM = THEMES[theme] || THEMES.drawingPaper;
 
   useEffect(() => {
@@ -909,6 +911,7 @@ export default function App() {
       if (gs) setGroups(JSON.parse(gs));
     } catch {}
     loadAll();
+    checkNotifyState();
     const ch = supabase
       .channel('rt')
       .on(
@@ -1119,6 +1122,24 @@ export default function App() {
             }
       )
     );
+  async function checkNotifyState() {
+    try {
+      if (
+        !('serviceWorker' in navigator) ||
+        !('PushManager' in window) ||
+        !('Notification' in window) ||
+        Notification.permission !== 'granted'
+      ) {
+        setNotifyOn(false);
+        return;
+      }
+      const reg = await navigator.serviceWorker.getRegistration();
+      const sub = reg && (await reg.pushManager.getSubscription());
+      setNotifyOn(!!sub);
+    } catch {
+      setNotifyOn(false);
+    }
+  }
   async function enableNotify() {
     if (!('Notification' in window)) {
       setNotice('この環境では通知を使えません。');
@@ -1126,7 +1147,10 @@ export default function App() {
     }
     const p = await Notification.requestPermission();
     if (p !== 'granted') {
-      setNotice('通知はオフのままです。');
+      setNotice(
+        '通知はオフのままです。端末の設定で許可がブロックされている場合があります。'
+      );
+      setNotifyOn(false);
       return;
     }
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
@@ -1141,9 +1165,30 @@ export default function App() {
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC),
       });
       await saveSubscription(sub);
+      setNotifyOn(true);
       setNotice('通知をオンにしました。閉じていてもお知らせします。');
     } catch (e) {
       setNotice('通知の登録に失敗: ' + (e?.message || e));
+    }
+  }
+  async function disableNotify() {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      const sub = reg && (await reg.pushManager.getSubscription());
+      if (sub) {
+        const endpoint = sub.endpoint;
+        await sub.unsubscribe();
+        if (endpoint) {
+          await supabase
+            .from('push_subscriptions')
+            .delete()
+            .eq('endpoint', endpoint);
+        }
+      }
+      setNotifyOn(false);
+      setNotice('通知をオフにしました。');
+    } catch (e) {
+      setNotice('通知オフに失敗: ' + (e?.message || e));
     }
   }
   async function saveSubscription(sub) {
@@ -1389,8 +1434,33 @@ export default function App() {
                   </>
                 )}
               </span>
-              <button onClick={enableNotify} style={miniBtn}>
-                通知
+              <button onClick={() => setNotifyMenu(true)} style={miniBtn}>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 5,
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 7,
+                      height: 7,
+                      borderRadius: '50%',
+                      background:
+                        notifyOn === true
+                          ? T.leaf
+                          : notifyOn === false
+                          ? '#C4B79A'
+                          : T.inkSoft,
+                    }}
+                  />
+                  {notifyOn === true
+                    ? '通知 ON'
+                    : notifyOn === false
+                    ? '通知 OFF'
+                    : '通知'}
+                </span>
               </button>
             </div>
           </div>
@@ -1519,6 +1589,93 @@ export default function App() {
             }}
           >
             {notice}
+          </div>
+        </div>
+      )}
+      {notifyMenu && (
+        <div onClick={() => setNotifyMenu(false)} style={overlay}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="popIn"
+            style={{
+              width: 'min(360px,92vw)',
+              ...PANEL(),
+              border: `1.5px solid ${PANEL_LINE}`,
+              borderRadius: SR3,
+              padding: 20,
+              boxShadow: '0 20px 60px #0005',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                marginBottom: 8,
+              }}
+            >
+              <Doodle name="note" size={22} color={T.blue} />
+              <span
+                style={{
+                  fontFamily: F_TITLE,
+                  fontWeight: 600,
+                  fontSize: 17,
+                  color: T.ink,
+                }}
+              >
+                通知の設定
+              </span>
+            </div>
+            <div
+              style={{ fontSize: 13.5, color: T.inkSoft, marginBottom: 16 }}
+            >
+              今は{' '}
+              <b style={{ color: notifyOn ? T.leaf : T.red }}>
+                {notifyOn === true
+                  ? 'オン'
+                  : notifyOn === false
+                  ? 'オフ'
+                  : '確認中'}
+              </b>{' '}
+              です。オンにすると、相手が投稿したときお知らせが届きます。
+            </div>
+            <div
+              style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
+            >
+              <button
+                disabled={notifyOn === true}
+                onClick={async () => {
+                  await enableNotify();
+                  setNotifyMenu(false);
+                }}
+                style={{
+                  ...actBtn,
+                  background: notifyOn === true ? PANEL_LINE : T.leaf,
+                  color: '#fff',
+                  cursor: notifyOn === true ? 'default' : 'pointer',
+                }}
+              >
+                オンにする
+              </button>
+              <button
+                disabled={notifyOn === false}
+                onClick={async () => {
+                  await disableNotify();
+                  setNotifyMenu(false);
+                }}
+                style={{
+                  ...actBtn,
+                  background: notifyOn === false ? PANEL_LINE : T.red,
+                  color: '#fff',
+                  cursor: notifyOn === false ? 'default' : 'pointer',
+                }}
+              >
+                オフにする
+              </button>
+              <button onClick={() => setNotifyMenu(false)} style={ghostBtn}>
+                閉じる
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -4109,6 +4266,15 @@ const miniBtn = {
   color: T.inkSoft,
   cursor: 'pointer',
   whiteSpace: 'nowrap',
+};
+const actBtn = {
+  border: 'none',
+  borderRadius: SR3,
+  padding: '12px',
+  fontFamily: F_TITLE,
+  fontWeight: 600,
+  fontSize: 15,
+  cursor: 'pointer',
 };
 const linkBtn = {
   background: 'transparent',
