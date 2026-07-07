@@ -2814,6 +2814,7 @@ function CommentSection({
 }
 function DiaryPage({ entry, photo, member, compact, stamp }) {
   const pp = paperOf(member);
+  const [photoAr, setPhotoAr] = useState(null);
   return (
     <div
       style={{
@@ -2887,7 +2888,11 @@ function DiaryPage({ entry, photo, member, compact, stamp }) {
         <div
           style={{
             position: 'relative',
-            aspectRatio: '4/3',
+            aspectRatio: photo
+              ? photoAr
+                ? String(photoAr)
+                : '4 / 3'
+              : '4 / 3',
             background: pp.deep,
             overflow: 'hidden',
             display: 'grid',
@@ -2898,6 +2903,11 @@ function DiaryPage({ entry, photo, member, compact, stamp }) {
             <img
               src={photo}
               alt=""
+              onLoad={(e) => {
+                const w = e.target.naturalWidth;
+                const h = e.target.naturalHeight;
+                if (w && h) setPhotoAr(Math.max(0.62, Math.min(1.85, w / h)));
+              }}
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
           ) : (
@@ -2986,6 +2996,7 @@ function Compose({
   const [title, setTitle] = useState(editEntry?.title || '');
   const [text, setText] = useState(editEntry?.text || '');
   const [photo, setPhoto] = useState(editEntry?.photo || null);
+  const [previewAr, setPreviewAr] = useState(null);
   const [busy, setBusy] = useState(false);
   const [showPrev, setShowPrev] = useState(true);
   const fileRef = useRef(null);
@@ -3182,7 +3193,11 @@ function Compose({
               onClick={() => fileRef.current?.click()}
               style={{
                 width: '100%',
-                aspectRatio: '4/3',
+                aspectRatio: photo
+                  ? previewAr
+                    ? String(previewAr)
+                    : '4 / 3'
+                  : '4 / 3',
                 border: 'none',
                 background: photo ? '#000' : pp.deep,
                 display: 'grid',
@@ -3196,6 +3211,12 @@ function Compose({
                 <img
                   src={photo}
                   alt=""
+                  onLoad={(e) => {
+                    const w = e.target.naturalWidth;
+                    const h = e.target.naturalHeight;
+                    if (w && h)
+                      setPreviewAr(Math.max(0.62, Math.min(1.85, w / h)));
+                  }}
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
               ) : (
