@@ -22,6 +22,10 @@ const MEMBER_PALETTE = [
   { key: 'purple', label: '紫', color: '#8E72B0' },
   { key: 'pink', label: 'ピンク', color: '#D87298' },
   { key: 'brown', label: '茶', color: '#9A7B53' },
+  { key: 'navy', label: '紺', color: '#2F4B7C' },
+  { key: 'wine', label: 'ワイン', color: '#A34D6B' },
+  { key: 'gray', label: 'グレー', color: '#7C878C' },
+  { key: 'lime', label: '黄緑', color: '#9DB84C' },
 ];
 const F_HAND =
   "'Klee One','Hiragino Maru Gothic ProN','ヒラギノ丸ゴ ProN','Yu Gothic',sans-serif";
@@ -60,7 +64,7 @@ const onColor2 = onColor;
 const inkOf = (hex) => (lum(hex) > 0.62 ? mix(hex, '#3a2f22', 0.42) : hex);
 const PAPER_TYPES = {
   whiteRough: {
-    label: '白いザラザラ',
+    label: '明るいザラザラ',
     card: '#FAF6EC',
     grain: true,
     sheen: false,
@@ -72,16 +76,16 @@ const PAPER_TYPES = {
     sheen: false,
   },
   smoothWhite: {
-    label: 'ツルツルの白',
+    label: '明るいツルツル',
     card: '#FCFBF7',
     grain: false,
     sheen: true,
   },
   mutedWhite: {
-    label: 'くすんだ白',
+    label: 'くすんだツルツル',
     card: '#F0E9D8',
     grain: false,
-    sheen: false,
+    sheen: true,
   },
 };
 const TINTS = {
@@ -94,6 +98,13 @@ const TINTS = {
   blue: { label: '青', color: '#9FBBD3', swatch: '#B7CEDF' },
   purple: { label: '紫', color: '#C2A8D6', swatch: '#D6C2E6' },
   pink: { label: 'ピンク', color: '#E2A6BE', swatch: '#EFC4D4' },
+  brown: { label: '茶', color: '#C9A176', swatch: '#D9BC97' },
+  gray: { label: 'グレー', color: '#BEC3C5', swatch: '#D2D6D7' },
+  navy: { label: '紺', color: '#8EA2C6', swatch: '#AABAD6' },
+  lime: { label: '黄緑', color: '#C7D88C', swatch: '#D8E4A8' },
+  cream: { label: 'クリーム', color: '#F1E7C4', swatch: '#F7F0D8' },
+  turquoise: { label: 'ターコイズ', color: '#7FC6CE', swatch: '#A4D8DE' },
+  azuki: { label: 'あずき', color: '#C08A94', swatch: '#D3A8B0' },
 };
 function buildPaper(p) {
   const pt = PAPER_TYPES[p?.type] || PAPER_TYPES.whiteRough;
@@ -141,7 +152,7 @@ const ruledP = (pp) =>
   `repeating-linear-gradient(${pp.line}99 0 1.4px, transparent 1.4px 2.15em)`;
 const THEMES = {
   simpleWhite: {
-    label: 'シンプルな白',
+    label: 'シンプル',
     bg: { background: '#F3F1EA' },
     text: '#3A3329',
     textSoft: '#8A7E6B',
@@ -222,6 +233,44 @@ const THEMES = {
     chrome: 'rgba(196,224,176,.82)',
     dark: false,
     ambient: 'meadow',
+  },
+  cute: {
+    label: 'かわいい',
+    bg: {
+      background:
+        'linear-gradient(180deg,#FBD9E3 0%,#FCE8EE 55%,#FDF3EC 100%)',
+    },
+    text: '#6B3A4C',
+    textSoft: '#A8778C',
+    line: '#F0C2D0',
+    chrome: 'rgba(251,222,232,.85)',
+    dark: false,
+    ambient: 'cute',
+  },
+  cool: {
+    label: 'かっこいい',
+    bg: {
+      background: 'linear-gradient(160deg,#14161C 0%,#1E2430 55%,#15181F 100%)',
+    },
+    text: '#E8EAF0',
+    textSoft: '#8A93A8',
+    line: '#2C3442',
+    accent: '#E85448',
+    chrome: 'rgba(18,20,26,.62)',
+    dark: true,
+    ambient: 'cool',
+  },
+  swim: {
+    label: '水泳',
+    bg: {
+      background: 'linear-gradient(180deg,#8FD9EA 0%,#4FB6DD 50%,#2E8FC4 100%)',
+    },
+    text: '#0E3A55',
+    textSoft: '#2F6386',
+    line: '#7CC4E0',
+    chrome: 'rgba(150,216,236,.82)',
+    dark: false,
+    ambient: 'swim',
   },
 };
 let THM = THEMES.drawingPaper;
@@ -862,6 +911,94 @@ function ThemeBackdrop({ theme }) {
         </svg>
       </div>
     );
+  if (a === 'cute')
+    return (
+      <div style={wrap}>
+        {[...Array(10)].map((_, i) => (
+          <span
+            key={i}
+            style={{
+              position: 'absolute',
+              left: `${(i * 53 + 9) % 92}%`,
+              top: `${(i * 37 + 6) % 88}%`,
+              opacity: 0.3 + (i % 3) * 0.15,
+              transform: `rotate(${i % 2 ? 14 : -12}deg)`,
+            }}
+          >
+            <Doodle
+              name={i % 3 ? 'heart' : 'sparkle'}
+              size={16 + (i % 3) * 8}
+              color={i % 4 ? '#E48AA6' : '#E8B04C'}
+            />
+          </span>
+        ))}
+      </div>
+    );
+  if (a === 'cool')
+    return (
+      <div style={wrap}>
+        {[16, 32, 50].map((t, i) => (
+          <div
+            key={i}
+            style={{
+              position: 'absolute',
+              top: `${t}%`,
+              left: '-12%',
+              width: '72%',
+              height: 2,
+              background: '#E85448',
+              opacity: 0.5 - 0.13 * i,
+              transform: 'rotate(-18deg)',
+            }}
+          />
+        ))}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundImage:
+              'linear-gradient(#ffffff07 1px,transparent 1px),linear-gradient(90deg,#ffffff07 1px,transparent 1px)',
+            backgroundSize: '52px 52px',
+            WebkitMaskImage: 'linear-gradient(180deg,transparent,#000 60%)',
+            maskImage: 'linear-gradient(180deg,transparent,#000 60%)',
+          }}
+        />
+      </div>
+    );
+  if (a === 'swim')
+    return (
+      <div style={wrap}>
+        {[24, 46, 68, 88].map((t, i) => (
+          <div
+            key={i}
+            style={{
+              position: 'absolute',
+              top: `${t}%`,
+              left: 0,
+              right: 0,
+              height: 3,
+              background:
+                'repeating-linear-gradient(90deg,#ffffff88 0 26px,#E0483C77 26px 40px)',
+              opacity: 0.45,
+            }}
+          />
+        ))}
+        {[...Array(9)].map((_, i) => (
+          <span
+            key={'b' + i}
+            style={{
+              position: 'absolute',
+              left: `${(i * 47 + 13) % 94}%`,
+              top: `${(i * 31 + 14) % 80}%`,
+              width: 5 + (i % 3) * 4,
+              height: 5 + (i % 3) * 4,
+              border: '2px solid #ffffff66',
+              borderRadius: '50%',
+            }}
+          />
+        ))}
+      </div>
+    );
   return null;
 }
 
@@ -885,6 +1022,15 @@ export default function App() {
   const initedRef = useRef(false);
   const [notifyOn, setNotifyOn] = useState(null);
   const [notifyMenu, setNotifyMenu] = useState(false);
+  const [logoutConfirm, setLogoutConfirm] = useState(false);
+  const [seenComments, setSeenComments] = useState(() => {
+    try {
+      const s = localStorage.getItem('diary:seenComments');
+      return new Set(s ? JSON.parse(s) : []);
+    } catch {
+      return new Set();
+    }
+  });
   THM = THEMES[theme] || THEMES.drawingPaper;
 
   useEffect(() => {
@@ -911,8 +1057,7 @@ export default function App() {
       if (gs) setGroups(JSON.parse(gs));
     } catch {}
     loadAll();
-    checkNotifyState();
-    const ch = supabase
+    checkNotifyState();    const ch = supabase
       .channel('rt')
       .on(
         'postgres_changes',
@@ -932,6 +1077,29 @@ export default function App() {
       .subscribe();
     return () => supabase.removeChannel(ch);
   }, [authUser]);
+
+  useEffect(() => {
+    if (!openId) return;
+    const ids = comments
+      .filter((c) => c.entry_id === openId)
+      .map((c) => c.id);
+    if (!ids.length) return;
+    setSeenComments((prev) => {
+      let changed = false;
+      const next = new Set(prev);
+      ids.forEach((id) => {
+        if (!next.has(id)) {
+          next.add(id);
+          changed = true;
+        }
+      });
+      if (!changed) return prev;
+      try {
+        localStorage.setItem('diary:seenComments', JSON.stringify([...next]));
+      } catch {}
+      return next;
+    });
+  }, [openId, comments]);
 
   const loadAll = async () => {
     await Promise.all([loadProfiles(), loadEntries(), loadComments()]);
@@ -993,17 +1161,20 @@ export default function App() {
   async function loadEntries() {
     const { data } = await supabase
       .from('entries')
-      .select('*')
+      .select('id,author_id,author_name,date,weather,title,text,created_at')
       .order('created_at', { ascending: false });
     if (!data) return;
-    setEntries(
-      data.map((e) => ({ ...e, authorId: e.author_id, hasPhoto: !!e.photo }))
-    );
-    const pm = {};
-    data.forEach((e) => {
-      if (e.photo) pm[e.id] = e.photo;
+    setEntries((prev) => {
+      const hadPhoto = {};
+      prev.forEach((p) => {
+        if (p.hasPhoto) hadPhoto[p.id] = true;
+      });
+      return data.map((e) => ({
+        ...e,
+        authorId: e.author_id,
+        hasPhoto: !!hadPhoto[e.id],
+      }));
     });
-    setPhotos(pm);
     // 相手の新しい投稿を見つけたら通知（初回読み込み時は鳴らさない）
     if (initedRef.current) {
       data.forEach((e) => {
@@ -1014,6 +1185,18 @@ export default function App() {
     }
     data.forEach((e) => notifiedRef.current.add(e.id));
     initedRef.current = true;
+    loadPhotos();
+  }
+
+  async function loadPhotos() {
+    const { data } = await supabase.from('entries').select('id,photo');
+    if (!data) return;
+    const pm = {};
+    data.forEach((e) => {
+      if (e.photo) pm[e.id] = e.photo;
+    });
+    setPhotos(pm);
+    setEntries((prev) => prev.map((e) => ({ ...e, hasPhoto: !!pm[e.id] })));
   }
 
   async function addEntry({ authorId, weather, title, text, photoData }) {
@@ -1035,6 +1218,7 @@ export default function App() {
       setNotice('保存エラー: ' + error.message);
       return;
     }
+    if (photoData) setPhotos((prev) => ({ ...prev, [id]: photoData }));
     await loadEntries();
     setComposing(false);
     setOpenId(id);
@@ -1060,6 +1244,12 @@ export default function App() {
       setNotice('保存エラー: ' + error.message);
       return;
     }
+    setPhotos((prev) => {
+      const n = { ...prev };
+      if (photoData) n[id] = photoData;
+      else delete n[id];
+      return n;
+    });
     await loadEntries();
     setComposing(false);
     setEditTarget(null);
@@ -1242,6 +1432,10 @@ export default function App() {
   comments.forEach((c) => {
     commentCounts[c.entry_id] = (commentCounts[c.entry_id] || 0) + 1;
   });
+  const commentUnread = {};
+  comments.forEach((c) => {
+    if (!seenComments.has(c.id)) commentUnread[c.entry_id] = true;
+  });
 
   if (authLoading)
     return (
@@ -1328,7 +1522,13 @@ export default function App() {
                 </div>
               </div>
               <span
-                style={{ fontSize: 11, color: THM.textSoft, marginTop: 16 }}
+                style={{
+                  fontSize: 11,
+                  color: THM.textSoft,
+                  marginTop: 16,
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                }}
               >
                 交換日記
               </span>
@@ -1372,7 +1572,7 @@ export default function App() {
                     {currentProfile.name}
                   </span>
                   <button
-                    onClick={logout}
+                    onClick={() => setLogoutConfirm(true)}
                     style={{
                       background: 'transparent',
                       border: 'none',
@@ -1380,6 +1580,7 @@ export default function App() {
                       fontSize: 11,
                       cursor: 'pointer',
                       padding: '0 4px',
+                      whiteSpace: 'nowrap',
                     }}
                   >
                     ログアウト
@@ -1520,6 +1721,7 @@ export default function App() {
                 memberById,
                 sideOf,
                 commentCounts,
+                commentUnread,
                 onOpen: setOpenId,
               }}
             />
@@ -1531,6 +1733,7 @@ export default function App() {
                 photos,
                 memberById,
                 commentCounts,
+                commentUnread,
                 onOpen: setOpenId,
               }}
             />
@@ -1674,6 +1877,54 @@ export default function App() {
               </button>
               <button onClick={() => setNotifyMenu(false)} style={ghostBtn}>
                 閉じる
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {logoutConfirm && (
+        <div onClick={() => setLogoutConfirm(false)} style={overlay}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="popIn"
+            style={{
+              width: 'min(340px,92vw)',
+              ...PANEL(),
+              border: `1.5px solid ${PANEL_LINE}`,
+              borderRadius: SR3,
+              padding: 20,
+              boxShadow: '0 20px 60px #0005',
+            }}
+          >
+            <div
+              style={{
+                fontFamily: F_TITLE,
+                fontWeight: 600,
+                fontSize: 17,
+                color: T.ink,
+                marginBottom: 8,
+              }}
+            >
+              ログアウトしますか？
+            </div>
+            <div style={{ fontSize: 13, color: T.inkSoft, marginBottom: 16 }}>
+              次に開くときは、メールアドレスとパスワードの入力が必要になります。
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button
+                onClick={() => {
+                  setLogoutConfirm(false);
+                  logout();
+                }}
+                style={{ ...actBtn, background: T.red, color: '#fff' }}
+              >
+                ログアウトする
+              </button>
+              <button
+                onClick={() => setLogoutConfirm(false)}
+                style={ghostBtn}
+              >
+                やめる
               </button>
             </div>
           </div>
@@ -2208,21 +2459,23 @@ const DECOR = [
     color: T.pink,
   },
 ];
-function CommentStamp({ n = 0, rot = -12, style }) {
+function CommentStamp({ n = 0, read = false, rot = -12, style }) {
+  const c = read ? '#B3A48E' : T.coral;
   return (
     <span
-      aria-label="コメントが来ています"
+      aria-label={read ? 'コメント（既読）' : 'コメントが来ています'}
       style={{
         position: 'absolute',
         width: 54,
         height: 54,
         borderRadius: '50%',
-        background: '#FBEEE9',
-        border: `2px dashed ${T.coral}`,
-        boxShadow: '0 3px 8px #0003',
+        background: read ? '#F2EDE3' : '#FBEEE9',
+        border: `2px dashed ${c}`,
+        boxShadow: read ? '0 1px 3px #0002' : '0 3px 8px #0003',
         display: 'grid',
         placeItems: 'center',
         transform: `rotate(${rot}deg)`,
+        opacity: read ? 0.55 : 1,
         ...style,
       }}
     >
@@ -2234,13 +2487,13 @@ function CommentStamp({ n = 0, rot = -12, style }) {
           textAlign: 'center',
         }}
       >
-        <Doodle name="heart" size={16} color={T.coral} />
+        <Doodle name="heart" size={16} color={c} />
         <span
           style={{
             fontFamily: F_TITLE,
             fontWeight: 600,
             fontSize: 9.5,
-            color: T.coral,
+            color: c,
             marginTop: 1,
           }}
         >
@@ -2252,7 +2505,7 @@ function CommentStamp({ n = 0, rot = -12, style }) {
               fontFamily: F_TITLE,
               fontWeight: 600,
               fontSize: 8.5,
-              color: T.coral,
+              color: c,
             }}
           >
             {n}件
@@ -2268,6 +2521,7 @@ function Timeline({
   memberById,
   sideOf,
   commentCounts,
+  commentUnread,
   onOpen,
 }) {
   if (!entries.length) return <Empty />;
@@ -2308,6 +2562,7 @@ function Timeline({
             right={sideOf(e.authorId) === 'right'}
             photo={photos[e.id]}
             commentCount={commentCounts[e.id] || 0}
+            commentNew={!!commentUnread[e.id]}
             onOpen={onOpen}
           />
         ))}
@@ -2333,6 +2588,7 @@ function LeafRow({
   right,
   photo,
   commentCount = 0,
+  commentNew = false,
   onOpen,
 }) {
   const [ref, seen] = useInView();
@@ -2384,7 +2640,11 @@ function LeafRow({
           <Doodle name={stamp} size={28} />
         </span>
         {commentCount > 0 && (
-          <CommentStamp n={commentCount} style={{ bottom: -14, right: -10 }} />
+          <CommentStamp
+            n={commentCount}
+            read={!commentNew}
+            style={{ bottom: -14, right: -10 }}
+          />
         )}
         <div
           style={{
@@ -3328,11 +3588,24 @@ function Compose({
     </div>
   );
 }
-function ListView({ entries, photos, memberById, commentCounts, onOpen }) {
+function ListView({
+  entries,
+  photos,
+  memberById,
+  commentCounts,
+  commentUnread,
+  onOpen,
+}) {
   if (!entries.length) return <Empty />;
   const groups = {};
   [...entries]
-    .sort((a, b) => (a.date < b.date ? 1 : -1))
+    .sort((a, b) =>
+      a.date === b.date
+        ? (b.created_at || 0) - (a.created_at || 0)
+        : a.date < b.date
+        ? 1
+        : -1
+    )
     .forEach((e) => {
       (groups[fmtDate(e.date).my] ||= []).push(e);
     });
@@ -3476,11 +3749,15 @@ function ListView({ entries, photos, memberById, commentCounts, onOpen }) {
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: 3,
-                            color: T.coral,
+                            color: commentUnread[e.id] ? T.coral : '#B3A48E',
                             fontFamily: F_TITLE,
                           }}
                         >
-                          <Doodle name="heart" size={12} color={T.coral} />
+                          <Doodle
+                            name="heart"
+                            size={12}
+                            color={commentUnread[e.id] ? T.coral : '#B3A48E'}
+                          />
                           コメント{commentCounts[e.id]}
                         </span>
                       )}
