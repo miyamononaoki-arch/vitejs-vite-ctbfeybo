@@ -1434,7 +1434,8 @@ export default function App() {
   });
   const commentUnread = {};
   comments.forEach((c) => {
-    if (!seenComments.has(c.id)) commentUnread[c.entry_id] = true;
+    if (c.author_id !== authUser?.id && !seenComments.has(c.id))
+      commentUnread[c.entry_id] = true;
   });
 
   if (authLoading)
